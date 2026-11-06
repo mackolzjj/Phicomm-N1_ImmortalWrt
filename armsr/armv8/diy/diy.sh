@@ -35,8 +35,6 @@ rustup toolchain install nightly-2026-10-20 --profile minimal
 rustup component add rust-src llvm-tools --toolchain nightly-2026-10-20
 rustup target add bpfel-unknown-none --toolchain nightly-2026-10-20
 rustup target add aarch64-unknown-linux-musl --toolchain 1.99.1
-# bpf-linker: required by the eBPF object link step
-cargo install bpf-linker
 # make honk's build.sh prefer rustup's cargo over OpenWrt's bundled rust.
 # Insert right after the shebang so it always runs first, regardless of
 # whether build.sh uses 'set -eu' / 'set -e' / 'set -uo pipefail'.
