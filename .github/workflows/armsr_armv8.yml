@@ -21,7 +21,9 @@ env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt
   REPO_TAG: v25.12.2
   TZ: Asia/Shanghai
-  CCACHE_DIR: ~/.ccache
+  # 必须是绝对路径：OpenWrt rules.mk 会用 CONFIG_CCACHE_DIR 覆盖此值，
+  # 且 env 中的 ~ 不展开；三处（env / .config / cache path）须完全一致。
+  CCACHE_DIR: /workdir/.ccache
 
 jobs:
   build:
@@ -65,8 +67,9 @@ jobs:
       - name: Restore ccache
         uses: actions/cache@v6
         with:
-          path: ~/.ccache
-          key: ccache-immortalwrt-${{ github.ref }}
+          path: /workdir/.ccache
+          # key 带 run_id：actions/cache 不覆盖同名 key，固定 key 会让缓存永不更新
+          key: ccache-immortalwrt-${{ github.ref }}-${{ github.run_id }}
           restore-keys: |
             ccache-immortalwrt-${{ github.ref }}-
             ccache-immortalwrt-
