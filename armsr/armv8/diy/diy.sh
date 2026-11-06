@@ -1,4 +1,7 @@
 #!/bin/bash
+# 任何命令失败立即停止，避免错误被后续步骤的 success 掩盖。
+# 不加 pipefail：HONK_TAG 管道中 grep 无匹配属正常情况。
+set -e
 
 # Clone packages
 git clone https://github.com/daeuniverse/openwrt-packages --single-branch --depth=1 clone/daepkg
@@ -30,10 +33,11 @@ export RUSTUP_HOME="$HOME/.rustup"
 export CARGO_HOME="$HOME/.cargo"
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.99.1 --profile minimal
 . "$CARGO_HOME/env"
-rustup toolchain install 1.99.1 --profile minimal --component rustfmt clippy
+# 1.99.1 已由 rustup-init 装好，这里只补组件（与下方 nightly 同一写法）
+rustup component add rustfmt clippy --toolchain 1.99.1
 rustup toolchain install nightly-2026-10-20 --profile minimal
 rustup component add rust-src llvm-tools --toolchain nightly-2026-10-20
-rustup target add bpfel-unknown-none --toolchain nightly-2026-10-20
+# bpfel-unknown-none 无预编译 std，honk 用 rust-src + -Z build-std 现编，无需 target add
 rustup target add aarch64-unknown-linux-musl --toolchain 1.99.1
 # make honk's build.sh prefer rustup's cargo over OpenWrt's bundled rust.
 # Insert right after the shebang so it always runs first, regardless of
