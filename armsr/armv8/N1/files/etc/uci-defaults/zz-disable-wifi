@@ -1,0 +1,32 @@
+#!/bin/sh
+# Phicomm N1 板载 BCM43455 (AP6255) SDIO Wi-Fi 固件反复崩溃：
+#   brcmf_fw_crashed -> dongle trap -> mmc0 重枚举
+#   -> 每秒刷 brcmf_dump_obss error (-52)
+# 该固件 (BCM4345/6 wl0: Feb 27 2018, 7.45.154 r684107 CY) 与
+# brcmfmac 驱动不兼容，两次复位都是同一 pc/epc，属确定性问题。
+# N1 仅作有线旁路由使用，.config 也未选任何无线包，
+# 直接让驱动拿不到固件，芯片便不会初始化，日志也不再刷屏。
+#
+# 不用 modprobe.d 黑名单：OpenWrt 用 kmodloader 读 /etc/modules.d/，
+# 且 SDIO 设备由 hotplug 按 modalias 自动加载模块，黑名单常不生效。
+# 固件 blob 由 ophub 打包时注入 /lib/firmware/brcm/，
+# 不随内核版本变化，因此 6.12 / 6.18 都会复现，必须在此拦截。
+# 2026-11-07 在 192.168.1.21 (6.18.60-ophub) 实测：
+#   /etc/modules.d/brcmfmac 开机自动加载模块（非仅 hotplug），
+#   固件目录含 brcmfmac43455-sdio.bin 与
+#   brcmfmac43455-sdio.phicomm,n1.bin 两个独立文件，
+#   另有 5 个指向 .bin 的符号链接，故用 glob 全覆盖；
+#   [ -L ] 用于把改名后变成断链的符号链接一并处理。
+#
+# 以 zz- 开头，按字典序排在其后 uci-defaults（含 zz-amlogic-repo）
+# 之后执行；exit 0 后由 /etc/init.d/boot 删除，只在首次启动生效一次。
+# 需要恢复 Wi-Fi：把 .disabled 改回原名并重启即可。
+# 找不到固件文件时静默跳过，避免脚本失败被反复执行。
+
+for fw in /lib/firmware/brcm/brcmfmac43455-sdio*.bin; do
+    [ -e "${fw}" ] || [ -L "${fw}" ] || continue
+    case "${fw}" in *.disabled) continue ;; esac
+    mv -f "${fw}" "${fw}.disabled" 2>/dev/null
+done
+
+exit 0
