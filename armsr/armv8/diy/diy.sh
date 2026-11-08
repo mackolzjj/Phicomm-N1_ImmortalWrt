@@ -1,20 +1,27 @@
 #!/bin/bash
 # 任何命令失败立即停止，避免错误被后续步骤的 success 掩盖。
-# 不加 pipefail：HONK_TAG 管道中 grep 无匹配属正常情况。
+# 不加 pipefail：HONK_TAG / ARGON_TAG 管道中 grep 无匹配属正常情况。
 set -e
 
 # Clone packages
 git clone https://github.com/daeuniverse/openwrt-packages --single-branch --depth=1 clone/daepkg
 git clone https://github.com/ophub/luci-app-amlogic --single-branch --depth=1 clone/amlogic
 git clone https://github.com/Zerogiven-OpenWRT-Packages/luci-app-podman --single-branch --depth=1 feeds/luci/applications/luci-app-podman
-# Argon 3.1.3 source (pinned tag; bump the tag here for future upgrades)
-git clone -b v3.1.3 --depth=1 https://github.com/jerrykuku/luci-theme-argon.git clone/argon
+# 每次编译自动取 Argon 最新稳定版 tag（三段式版本号，跳过 beta/rc 预发布；
+# 与 honk 同用 git ls-remote，无需 token、不受 GitHub API 速率限制）
+ARGON_TAG=$(git ls-remote --tags --sort="-v:refname" https://github.com/jerrykuku/luci-theme-argon \
+  | grep -oE 'refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$' \
+  | sed 's#.*/##' | head -1)
+# 网络抖动或上游改命名时回退到已知可用版本，避免单个主题让整次构建失败
+ARGON_TAG="${ARGON_TAG:-v3.1.3}"
+echo "本次编译 Argon 版本: ${ARGON_TAG}"
+git clone -b "${ARGON_TAG}" --depth=1 https://github.com/jerrykuku/luci-theme-argon.git clone/argon
 
 # Adjust packages (honk replaces dae/passwall; doona UI is embedded in honk)
 rm -rf feeds/luci/applications/luci-app-dae feeds/luci/applications/luci-app-daed feeds/luci/applications/luci-app-passwall feeds/packages/net/dae
 
 # Argon 3.x integrates the config page into the theme: replace the 2.4.7
-# feed package with v3.1.3 and drop the legacy standalone
+# feed package with the latest upstream tag and drop the legacy standalone
 # luci-app-argon-config, which would reinstall files now owned by the theme.
 # Paths verified against the luci feed pinned by ImmortalWrt v25.12.2:
 # theme lives in themes/, the old plugin in applications/.
